@@ -1,4 +1,4 @@
-use bytes::Bytes;
+use bytes::{Bytes, BufMut};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{
@@ -43,11 +43,14 @@ async fn main() {
     loop {
         tokio::select! {
             maybe_socket = listener.accept() => {
+                let current_time = std::time::Instant::now();
                 let (mut socket, _) = maybe_socket.unwrap();
                 let (oneshot_sender, oneshot_receiver): (oneshot::Sender<Bytes>, oneshot::Receiver<Bytes>) = oneshot::channel();
                 sender.send(ChannelMessage { server_port: manager.get_next_server_port(), responder: oneshot_sender }).await.unwrap();
                 tokio::spawn(async move {
-                    process(&mut socket, oneshot_receiver).await
+                    process(&mut socket, oneshot_receiver).await;
+                    let elapsed = current_time.elapsed().as_secs_f64();
+                    println!("elapsed: {} ms", elapsed * 1000.0);
                 });
             },
             maybe_message = receiver.recv() => {
@@ -69,22 +72,22 @@ async fn main() {
 async fn process(stream: &mut TcpStream, receiver: oneshot::Receiver<Bytes>) {
     match receiver.await {
         Ok(value) => {
-            println!("{:?}", value);
             let length = value.len();
-            let header = format!("HTTP/1.1 200 Ok\r\nContent-Length: {}\r\n\r\n", length);
+            let header = format!("HTTP/1.1 200 Ok\r\nContent-Length: {}\r\nContent-Type: application/json\r\n\r\n", length);
 
-            stream.write_all(header.as_bytes()).await.unwrap();
+            let mut buffer = vec![];
+            buffer.put(header.as_bytes());
 
             for byte in value {
-                stream.write_u8(byte).await.unwrap();
+                buffer.put_u8(byte);
             }
+            println!("{:?}", String::from_utf8(buffer.clone()).unwrap());
+            stream.write_all(&buffer).await.unwrap();
         }
         Err(_) => {
             let header = format!("HTTP/1.1 500 Ok\r\n\r\n");
             stream.write_all(header.as_bytes()).await.unwrap();
         }
     };
-
-    //
-    // println!("{:?}", stream.peer_addr());
+    stream.shutdown().await.unwrap();
 }
