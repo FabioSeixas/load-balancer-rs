@@ -1,0 +1,34 @@
+version: "3"
+
+services:
+  proxy:
+    image: fabio/rust-proxy
+    container_name: rust-proxy
+    networks:
+      - my-awesome-net
+    ports:
+      - "7878:7878"
+
+  api1:
+    image: fabio/node-servers
+    container_name: node-server
+    networks:
+      - my-awesome-net
+              
+  # api2:
+  #   image: fabio/node-server
+  #   command: 3001
+  #   container_name: node-server-2
+  #   networks:
+  #     - fabionet
+  #
+  # api3:
+  #   image: fabio/node-server
+  #   command: 3002
+  #   container_name: node-server-3
+  #   networks:
+  #     - fabionet
+
+networks:
+  my-awesome-net:
+    driver: bridge

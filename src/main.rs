@@ -30,7 +30,7 @@ struct ChannelMessage {
 
 #[tokio::main]
 async fn main() {
-    let listener = TcpListener::bind("localhost:7878").await.unwrap();
+    let listener = TcpListener::bind("0.0.0.0:7878").await.unwrap();
 
     let http_client = reqwest::Client::new();
 
@@ -55,7 +55,7 @@ async fn main() {
             },
             maybe_message = receiver.recv() => {
                 if let Some(message) = maybe_message {
-                    let respose_bytes = http_client.get(format!("http://localhost:{}", message.server_port))
+                    let respose_bytes = http_client.get(format!("http://node-server:{}", message.server_port))
                         .send()
                         .await
                         .unwrap()
